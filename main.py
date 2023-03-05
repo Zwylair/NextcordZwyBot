@@ -8,8 +8,10 @@ from basic_funcs import is_role_exist, is_message_exist
 from verifier.verifier_view import VerifierEmbedView, VerifierView
 from verifier.verifier_emoji import VerifierEmbedEmojiView, VerifierCogListener
 from mafia import MafiaLobbyView
+from backgrounds import start_keeping
 
 bot = nextcord.ext.commands.Bot()
+start_keeping()
 
 
 @bot.event
