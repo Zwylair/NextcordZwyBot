@@ -59,23 +59,13 @@ async def on_connect():
     print(f'Logged as {bot.user}')
 
 
-# @bot.slash_command(description='Помощь')
-# async def help(interaction: nextcord.Interaction,
-#                subcommand: str = nextcord.SlashOption(
-#                    name='subcommand',
-#                    description='Подкоманда',
-#                    choices=HELP_SUBCOMMANDS.keys(),
-#                    required=False
-#                )):
-#     if subcommand is not None:
-#         await interaction.send(embed=nextcord.Embed(title=f'Помощь :bookmark: ({subcommand})',
-#                                                     description=HELP_SUBCOMMANDS[subcommand],
-#                                                     colour=nextcord.Colour(0x41DAEB)))
-#     else:
-#         help_text = '\n'.join(list(HELP_SUBCOMMANDS.values()))
-#         await interaction.send(embed=nextcord.Embed(title=f'Помощь :bookmark:',
-#                                                     description=help_text,
-#                                                     colour=nextcord.Colour(0x41DAEB)))
+@bot.slash_command(name='help', description='Помощь по командам')
+async def help(interaction: nextcord.Interaction):
+    embed = nextcord.Embed(title='Помощь', colour=0xf0dfaa)
+    for command in bot.get_application_commands():
+        embed.add_field(name=f'```/{command.name}```', value=f'```{command.description}```')
+
+    await interaction.send(embed=embed, ephemeral=True)
 
 
 @bot.slash_command(name='verifier', description='Создать сообщение верификации')

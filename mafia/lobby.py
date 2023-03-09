@@ -11,6 +11,7 @@ class MafiaLobbyView(nextcord.ui.View):
         self.lobby_lead = author
         self.secondary_roles_picker: MafiaSecondaryRolesView | None = None
         self.secondary_amount_picker: MafiaMemberAmountView | None = None
+        self.invite_msg_id: int | None = None
 
     async def update(self):
         if self.secondary_roles_picker is None:
@@ -52,20 +53,27 @@ class MafiaLobbyView(nextcord.ui.View):
 
     @nextcord.ui.button(label='Отослать приглашение в чат', style=nextcord.ButtonStyle.primary, custom_id='send_invite')
     async def send_invite(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
-        secondary_roles = [Bum if self.secondary_roles_picker.bum else None,
-                           Slut if self.secondary_roles_picker.slut else None,
-                           Morph if self.secondary_roles_picker.morph else None]
-        secondary_roles = [i for i in secondary_roles if i is not None]
+        try:
+            await interaction.channel.fetch_message(self.invite_msg_id)
+        except (nextcord.NotFound, nextcord.HTTPException) as _:
+            self.invite_msg_id = None
 
-        status_interaction = await interaction.send('Creating invite...')
-        view = MafiaGamePreLaunch(status_interaction, self.lobby_lead, self.secondary_amount_picker.min,
-                                  self.secondary_amount_picker.max, secondary_roles)
-        await status_interaction.edit(view=view)
-        await view.update(add_view=True)
+        if self.invite_msg_id is None:
+            secondary_roles = [Bum if self.secondary_roles_picker.bum else None,
+                               Slut if self.secondary_roles_picker.slut else None,
+                               Morph if self.secondary_roles_picker.morph else None]
+            secondary_roles = [i for i in secondary_roles if i is not None]
+    
+            status_interaction = await interaction.send('Creating invite...')
+            view = MafiaGamePreLaunch(status_interaction, self.lobby_lead, self.secondary_amount_picker.min,
+                                      self.secondary_amount_picker.max, secondary_roles)
+            self.invite_msg_id = await status_interaction.fetch()
+            self.invite_msg_id = self.invite_msg_id.id
 
-    @nextcord.ui.button(label='Закрыть лобби', style=nextcord.ButtonStyle.red, custom_id='close')
-    async def close_lobby(self, _: nextcord.ui.Button, __: nextcord.Interaction):
-        await self.status_interaction.delete()
+            await status_interaction.edit(view=view)
+            await view.update(add_view=True)
+        else:
+            await interaction.send('Приглашение уже отослано!', ephemeral=True)
 
 
 class MafiaSecondaryRolesView(nextcord.ui.View):
@@ -251,11 +259,12 @@ class MafiaGamePreLaunch(nextcord.ui.View):
     def __init__(self, status_interaction: nextcord.PartialInteractionMessage, lobby_head: nextcord.User | nextcord.Member,
                  min_players: int, max_players: int, secondary_roles: list):
         super().__init__()
-        self.status_interaction: nextcord.PartialInteractionMessage = status_interaction
+        self.status_interaction = status_interaction
         self.lobby_head = lobby_head
-        self.min_players: int = min_players
-        self.max_players: int = max_players
-        self.players: list = [lobby_head]
+        self.min_players = min_players
+        self.max_players = max_players
+        self.players = []
+        self.interactions_for_answer = []
         self.embed = nextcord.Embed(colour=nextcord.Colour.brand_green(), title='Приглашение в мафию!',
                                     description=f'{lobby_head.mention} приглашает вас в мафию!')
         self.embed.set_image(MAFIA_BANNER_URL)
@@ -275,12 +284,14 @@ class MafiaGamePreLaunch(nextcord.ui.View):
                            'Ночная бабочка' if self.secondary_roles.count(Slut) == 1 else '',
                            'Морф' if self.secondary_roles.count(Morph) == 1 else '']
         secondary_roles = ", ".join([i for i in secondary_roles if i != ''])
+        secondary_text = '(заняты все места)\n' if len(self.players) == self.max_players else '\n'
 
         self.embed.clear_fields()
         self.embed.add_field(name='```Настройки игры```',
                              value=f'```Ограничения по игрокам: от {self.min_players} до {self.max_players}\n'
                                    f'Дополнительные роли: {"Отсутствуют" if secondary_roles == "" else secondary_roles}```')
-        self.embed.add_field(name='```Игроки в лобби```', value=', '.join([i.mention for i in self.players]))
+        self.embed.add_field(name='```Игроки в лобби```',
+                             value=f'Ведущий: {self.lobby_head.mention}\n\n{secondary_text}' + ' '.join([i.mention for i in self.players]))
 
         if add_view:
             await self.status_interaction.edit(content=None, embed=self.embed, view=self)
@@ -303,24 +314,39 @@ class MafiaGamePreLaunch(nextcord.ui.View):
             players = self.players
             players.remove(self.lobby_head)
 
-            for i in players:
+            for user, interaction_for_answer in zip(players, self.interactions_for_answer):
                 if roles:
                     selected_role = choice(roles)
-                    prepared_players_list.append(Player(i, selected_role()))
+                    prepared_players_list.append(Player(user, selected_role(), interaction_for_answer))
                     roles.remove(selected_role)
                 else:
-                    prepared_players_list.append(Player(i, Innocent()))
+                    prepared_players_list.append(Player(user, Innocent(), interaction_for_answer))
 
             player_list = '\n'.join([f'{player.nextcord_user.mention} - {str(player.role)}' for player in prepared_players_list])
             embed = nextcord.Embed(colour=nextcord.Colour.brand_green(), title='```Роли игроков```',
                                    description=player_list)
-            await interaction.send(embed=embed, ephemeral=True)
+            await interaction.send(embed=embed, view=MafiaShowPlayersRoles(prepared_players_list), ephemeral=True)
         else:
             await interaction.send('Недостаточно игроков для начала игры!', ephemeral=True)
 
     @nextcord.ui.button(label='Присоединиться', style=nextcord.ButtonStyle.green, custom_id='join')
     async def join(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
-        if len(self.players) != self.max_players and interaction.user not in self.players:
+        if len(self.players) != self.max_players \
+                and interaction.user not in self.players \
+                and interaction.user != self.lobby_head:
             self.players.append(interaction.user)
-
+            self.interactions_for_answer.append(interaction)
+    
             await self.update(add_view=True)
+
+
+class MafiaShowPlayersRoles(nextcord.ui.View):
+    def __init__(self, players: list[Player]):
+        super().__init__()
+        self.players = players
+
+    @nextcord.ui.button(label='Показать всем игрокам роли', style=nextcord.ButtonStyle.green, custom_id='show_roles')
+    async def show_roles(self, _: nextcord.ui.Button, __: nextcord.Interaction):
+        for player in self.players:
+            await player.interaction_for_answer.send(f'{player.nextcord_user.mention} ```Твоя роль - {player.role}. {player.role.desc_embed.description.lstrip("`")}',
+                                                     ephemeral=True)

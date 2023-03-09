@@ -13,6 +13,7 @@ SECONDARY_ROLES_LIMITS = {Bum: ['12-14', '15-17', '18-20'],
 
 
 class Player:
-    def __init__(self, nextcord_user: nextcord.User | nextcord.Member, role: PlayerRole):
+    def __init__(self, nextcord_user: nextcord.User | nextcord.Member, role: PlayerRole, interaction_for_answer: nextcord.Interaction):
         self.nextcord_user = nextcord_user
         self.role: PlayerRole = role
+        self.interaction_for_answer: nextcord.Interaction = interaction_for_answer

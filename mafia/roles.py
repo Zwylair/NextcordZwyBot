@@ -9,7 +9,7 @@ class PlayerRole:
 class Innocent(PlayerRole):
     def __init__(self):
         super().__init__()
-        self.desc_embed.description = 'Роль, которая не даёт специфичных возможностей'
+        self.desc_embed.description = 'Мирный - роль, которая не даёт специфичных возможностей```'
 
     def __str__(self):
         return 'Мирный'
