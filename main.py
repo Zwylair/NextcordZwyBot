@@ -10,14 +10,20 @@ from verifier.verifier_emoji import VerifierEmbedEmojiView, VerifierCogListener
 from mafia import MafiaLobbyView
 from backgrounds import start_keeping
 
-bot = nextcord.ext.commands.Bot()
+bot = nextcord.ext.commands.Bot(intents=nextcord.Intents().all())
 start_keeping()
+
+
+async def _update_server_count():
+    await bot.change_presence(activity=nextcord.Activity(type=nextcord.ActivityType.watching,
+                                                         name=f'PornHub | {len(bot.guilds)} Servers'),
+                              status=nextcord.Status.dnd)
 
 
 @bot.event
 async def on_connect():
     sql = sqlite3.connect('db.sql')
-    
+
     # update existing views
     results = sql.execute("SELECT * FROM views")
     for data in results.fetchall():
@@ -53,10 +59,20 @@ async def on_connect():
  
     bot.add_cog(VerifierCogListener(bot))
 
-    await bot.change_presence(activity=nextcord.Activity(type=nextcord.ActivityType.watching, name='porn'), status=nextcord.Status.dnd)
+    await _update_server_count()
     await bot.sync_all_application_commands()
 
     print(f'Logged as {bot.user}')
+
+
+@bot.event
+async def on_guild_join(_: nextcord.Guild):
+    await _update_server_count()
+
+
+@bot.event
+async def on_guild_remove(_: nextcord.Guild):
+    await _update_server_count()
 
 
 @bot.slash_command(name='help', description='Помощь по командам')
