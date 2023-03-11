@@ -1,9 +1,8 @@
 import nextcord
 
 BUNKER_EMBED = nextcord.Embed(title='ИВЕНТ: БУНКЕР', colour=0xCECECE,
-                              description='```Участников метаморфоза встречает новый ивент, а именно симулятор путина под названием "Бункер"\n'
-                                          'Вся подробную инфу можно глянуть на сайте где и будет проводиться ивент (сайт находится в строке примечания)```')
-BUNKER_EMBED.add_field(name='Для участия нажмите кнопку `УЧАСТВОВАТЬ`', inline=False, value='призом является роль обозначающая вас победителем ивента')
+                              description='```Здравствуйте метакоровцы. Рады представить вам очередной симулятор путина под названием "Бункер".\nВся подробную инфу можно глянуть на сайте где и будет проводиться ивент (сайт находится в строке примечания)```')
+BUNKER_EMBED.add_field(name='Приз', value='Призом является роль обозначающая вас победителем ивента', inline=False)
 BUNKER_EMBED.add_field(name='Примечание', inline=False, value='Так же ознакомьтесь с [правилами](https://bunker-online.com/rules) игры прежде чем подавать заявку для участия')
 BUNKER_EMBED.set_image('https://media.discordapp.net/attachments/345528162668511242/1019663408775299142/72bf95f3e3f19.png?width=500&height=333')
 BUNKER_EMBED.set_footer(text='Будет проведено', icon_url='https://media.discordapp.net/attachments/453848841616228354/1019665263320375336/gas-mask.png')
@@ -54,7 +53,7 @@ DOTA_EMBED = nextcord.Embed(title='ИВЕНТ: DOTA 2 ROLE CLOSE', colour=0xFC14
                                         '* 2/2 - Составы команд заранее отобраны```\n'
                                         '\n'
                                         'После запускается локальное лобби, куда нужно будет присоединиться\n'
-                                        '⠀⠀⠀⠀⠀МАКСИМАЛЬНОЕ КОЛИЧЕСТВО МЕСТ ОГРАНИЧЕНО!!!\n'
+                                        '⠀⠀⠀⠀⠀`МАКСИМАЛЬНОЕ КОЛИЧЕСТВО МЕСТ ОГРАНИЧЕНО!!!`\n'
                                         'призом является роль обозначающая вас победителем ивента')
 DOTA_EMBED.set_image('https://media.tenor.com/Us9N0T3M-Z0AAAAC/dota2-%25D0%25B4%25D0%25BE%25D1%2582%25D0%25B02.gif?width=500&height=301')
 DOTA_EMBED.set_footer(text='Будет проведено', icon_url='https://media.discordapp.net/attachments/453848841616228354/1018296588776521828/dota2png.png')
