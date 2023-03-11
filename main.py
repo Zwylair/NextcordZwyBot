@@ -1,14 +1,13 @@
 from typing import Literal
 import sqlite3
 import nextcord.ext.commands
-
 from settings import *
 from basic_funcs import is_role_exist, is_message_exist
-
+from backgrounds import start_keeping
 from verifier.verifier_view import VerifierEmbedView, VerifierView
 from verifier.verifier_emoji import VerifierEmbedEmojiView, VerifierCogListener
 from mafia import MafiaLobbyView
-from backgrounds import start_keeping
+from metacore.cog import MetacoreCommandsCog
 
 bot = nextcord.ext.commands.Bot(intents=nextcord.Intents().all())
 start_keeping()
@@ -27,7 +26,7 @@ async def on_connect():
     # update existing views
     results = sql.execute("SELECT * FROM views")
     for data in results.fetchall():
-        data: tuple[str, int, int, int, int]
+        data: tuple[str | None, int | None, int | None, int | None, int | None]
         view_type, guild_id, chat_id, message_id, role_id = data
         
         if await is_message_exist(bot, guild_id, chat_id, message_id):
@@ -58,6 +57,7 @@ async def on_connect():
     sql.close()
  
     bot.add_cog(VerifierCogListener(bot))
+    bot.add_cog(MetacoreCommandsCog())
 
     await _update_server_count()
     await bot.sync_all_application_commands()
