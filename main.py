@@ -1,15 +1,20 @@
 from typing import Literal
 import datetime
 import sqlite3
+import random
 import nextcord.ext.commands
+import openai
 from settings import *
-from basic_funcs import is_role_exist, is_message_exist
+from basic_funcs import is_role_exist, is_message_exist, check_for_event_creator_role, check_for_administrator_perm
 from backgrounds import start_keeping
 from verifier.verifier_view import VerifierEmbedView, VerifierView
 from verifier.verifier_emoji import VerifierEmbedEmojiView, VerifierCogListener
 from mafia import MafiaLobbyView
+import hide_and_seek
 from metacore.db import EVENT_DICT
+from auto import AutoSender
 
+openai.api_key = OPENAI_API_KEY
 bot = nextcord.ext.commands.Bot(intents=nextcord.Intents().all())
 start_keeping()
 
@@ -58,11 +63,13 @@ async def on_connect():
     sql.close()
  
     bot.add_cog(VerifierCogListener(bot))
+    bot.add_cog(hide_and_seek.HideNSeek(bot))
 
     await _update_server_count()
     await bot.sync_all_application_commands()
 
     print(f'Logged as {bot.user}')
+    await AutoSender(bot).poll()
 
 
 @bot.event
@@ -88,6 +95,9 @@ async def help(interaction: nextcord.Interaction):
 async def verifier(interaction: nextcord.Interaction,
                    target_chat: nextcord.TextChannel = nextcord.SlashOption(name='target_chat', description='Чат, в который будет отослано сообщение', required=True),
                    verification_type: Literal['button', 'emoji'] = nextcord.SlashOption(name='verification_type', description='Тип верификации', required=True)):
+    if not await check_for_administrator_perm(interaction):
+        return
+
     verification_type = 'view' if verification_type == 'button' else verification_type
     embed = nextcord.Embed(title='Title', colour=0x9a72ba, description='Basic Description')
     embed.set_image(VERIFY_BANNER_URL)
@@ -110,20 +120,14 @@ async def create_mafia_lobby(interaction: nextcord.Interaction):
     await status_interaction.edit(view=view)
 
 
-@bot.slash_command(name='create_event', description='Создать событие')
+@bot.slash_command(name='create_event', description='Создать событие', guild_ids=[METACORE_GUILD_ID, TEST_GUILD_ID])
 async def create_event(interaction: nextcord.Interaction,
                        event_embed_type: Literal['bunker', 'mafia', 'among us', 'minecraft uhc', 'dota 2 role close', 'zxc metacore', 'karaoke', 'cs role close'] = nextcord.SlashOption(name='event_type', description='Событие', required=True),
                        day: Literal['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] = nextcord.SlashOption(name='day', description='День проведения ивента', required=True),
                        time: str = nextcord.SlashOption(name='time', description='Время проведения ивента (например 21:00)', required=True),
                        url: str = nextcord.SlashOption(name='url', description='Доп. ссылка на то, что должно меняться в евенте', required=False)):
-    if interaction.guild_id == METACORE_GUILD_ID:
-        if interaction.guild.get_role(EVENT_CREATOR_ROLE_ID) not in interaction.user.roles:
-            await interaction.send('У вас недостаточно прав для создания события! (Роль)', ephemeral=True)
-            return
-    elif interaction.guild_id == TEST_GUILD_ID:
-        if interaction.guild.get_role(TEST_EVENT_CREATOR_ROLE_ID) not in interaction.user.roles:
-            await interaction.send('У вас недостаточно прав для создания события! (Роль)', ephemeral=True)
-            return
+    if not await check_for_event_creator_role(interaction):
+        return
 
     input_day_num = {v: k for k, v in DATETIME_WEEKDAY_DICT.items()}[day]
     today_num = datetime.date.today().weekday()
@@ -153,6 +157,37 @@ async def create_event(interaction: nextcord.Interaction,
     channel = interaction.guild.get_channel(channel_id)
     event_message = await channel.send(embed=embed)
     await interaction.send(f'Готово! [Отправленное сообщение...]({event_message.jump_url})', ephemeral=True)
+
+
+@bot.slash_command(name='create_own_event', description='Создать своё событие', guild_ids=[METACORE_GUILD_ID, TEST_GUILD_ID])
+async def create_event(interaction: nextcord.Interaction):
+    if not await check_for_event_creator_role(interaction):
+        return
+
+    await interaction.send('Перейдите на сайт для продолжения: https://discohook.org', ephemeral=True)
+
+
+@bot.slash_command(name='gpt_says', description='Задать вопрос chat-gpt', guild_ids=[METACORE_GUILD_ID, TEST_GUILD_ID])
+async def gpt_says(interaction: nextcord.Interaction, prompt: str = nextcord.SlashOption(name='prompt', description='Вопрос для chatgpt', required=True)):
+    # Chat-GPT's solution :)
+    r = random.randint(64, 191)
+    g = random.randint(64, 191)
+    b = random.randint(64, 191)
+
+    random_pastel_hex_colour = (r << 16) + (g << 8) + b
+
+    await interaction.response.defer()
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{'role': 'user', 'content': prompt}]
+    )
+    
+    response = response.choices[0].message.content
+    response = response.lstrip('\n')
+    
+    embed = nextcord.Embed(title=f'>>> {prompt}', description=f'```{response}```', colour=random_pastel_hex_colour)
+    await interaction.send(embed=embed)
 
 
 bot.run(TOKEN)
