@@ -1,5 +1,5 @@
 import nextcord
-from mafia.roles import PlayerRole, Innocent, Mafia, Don, Doctor, Commissar, Bum, Slut, Morph
+from games.mafia.roles import PlayerRole, Innocent, Mafia, Don, Doctor, Commissar, Bum, Slut, Morph
 
 ROLES_DICT = {'6-6': [Mafia],
               '7-7': [Mafia, Mafia],

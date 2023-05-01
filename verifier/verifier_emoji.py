@@ -3,7 +3,7 @@ import nextcord.ext.commands
 
 from settings import SQL_DB_PATH
 from basic_funcs import is_role_exist
-from verifier import VerifierBaseEmbedView
+from verifier.db import VerifierBaseEmbedView
 
 
 class VerifierCogListener(nextcord.ext.commands.Cog):

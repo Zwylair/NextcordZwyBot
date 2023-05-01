@@ -1,6 +1,6 @@
 import sqlite3
 import nextcord
-from verifier import VerifierBaseEmbedView
+from verifier.db import VerifierBaseEmbedView
 
 
 class VerifierView(nextcord.ui.View):

@@ -1,6 +1,6 @@
 from random import choice
 import nextcord
-from mafia.db import Player, Innocent, Mafia, Don, Doctor, Commissar, Bum, Slut, Morph, ROLES_DICT, SECONDARY_ROLES_LIMITS
+from games.mafia.db import Player, Innocent, Mafia, Don, Doctor, Commissar, Bum, Slut, Morph, ROLES_DICT, SECONDARY_ROLES_LIMITS
 from settings import MAFIA_BANNER_URL
 
 
