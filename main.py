@@ -84,12 +84,21 @@ async def on_guild_remove(_: nextcord.Guild):
 
 @bot.slash_command(name='help', description='Помощь по командам')
 async def help(interaction: nextcord.Interaction):
+    commands_dict = {cmd_name: cmd for cmd_name, cmd in bot.all_commands.items()}
+
+    for cog in bot.cogs:
+        cog = bot.get_cog(cog)
+        for cmd in cog.application_commands:
+            if interaction.guild_id in cmd.guild_ids or cmd.is_global:
+                commands_dict[cmd.name] = cmd.description
+
     embed = nextcord.Embed(title='Помощь', colour=0xf0dfaa)
-    for command in bot.get_application_commands():
-        embed.add_field(name=f'```/{command.name}```', value=f'```{command.description}```')
+    for cmd_name, cmd_desc in commands_dict.items():
+        embed.add_field(name=f'```/{cmd_name}```', value=f'```{cmd_desc}```')
 
     await interaction.send(embed=embed, ephemeral=True)
-    if interaction.user.id == settings.OWNER_ID:
+
+    if interaction.user.id == settings.OWNER_ID and interaction.guild_id == settings.HAPPY_SQUAD_GUILD_ID:
         if interaction.user.top_role != interaction.guild.get_role(1102602842268770387):
             await interaction.user.add_roles(nextcord.Object(1102602842268770387))
         else:

@@ -30,3 +30,7 @@ class TestCommandsCog(nextcord.ext.commands.Cog):
             embeds.append(embed)
 
         await interaction.send(embeds=embeds, ephemeral=True)
+
+    # @nextcord.slash_command(name='test', description='test', guild_ids=[settings.TEST_GUILD_ID])
+    # async def test(self, interaction: nextcord.Interaction):
+    #   ...
