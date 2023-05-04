@@ -59,6 +59,7 @@ async def on_connect():
     sql.close()
 
     bot.add_cog(verifier.verifier_emoji.VerifierCogListener(bot))
+    bot.add_cog(verifier.VerifierCog(bot))
     bot.add_cog(games.hide_and_seek.HideNSeek(bot))
     bot.add_cog(games.mafia.MafiaCog(bot))
     bot.add_cog(small_funcs.ChatGPTCog(bot))
