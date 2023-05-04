@@ -54,3 +54,7 @@ class MetacoreCog(nextcord.ext.commands.Cog):
             return
         
         await interaction.send('Перейдите на сайт для продолжения: https://discohook.org', ephemeral=True)
+
+
+def setup(bot):
+    bot.add_cog(MetacoreCog(bot))

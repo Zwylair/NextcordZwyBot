@@ -42,3 +42,7 @@ class VerifierCog(nextcord.ext.commands.Cog):
                                                                                              embed_message=embed_message,
                                                                                              out_embed=embed, out_chat=target_chat))
     
+
+def setup(bot):
+    bot.add_cog(verifier.verifier_emoji.VerifierCogListener(bot))
+    bot.add_cog(verifier.VerifierCog(bot))
