@@ -1,13 +1,14 @@
 import sqlite3
 import nextcord.ext.commands
 
-import moderation
 import settings
 import basic_funcs
 import backgrounds
 
 import test_server_funcs
 import small_funcs
+import moderation
+import political
 import verifier
 import metacore
 import games
@@ -65,6 +66,7 @@ async def on_connect():
     metacore.setup(bot)
     test_server_funcs.setup(bot)
     moderation.setup(bot)
+    political.setup(bot)
 
     await _update_server_count()
     await bot.sync_all_application_commands()

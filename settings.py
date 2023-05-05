@@ -1,6 +1,6 @@
 from os import getenv
 
-TOKEN = getenv('zwybot_dsbot_token')  # testbot_token zwybot_dsbot_token
+TOKEN = getenv('testbot_token')  # testbot_token zwybot_dsbot_token
 OPENAI_API_KEY = getenv('openai_api_key')
 REGISTRATION_BANNER_URL = 'https://media.tenor.com/ommRkBKPWAsAAAAC/anime.gif'
 ERROR_BANNER_URL = 'https://64.media.tumblr.com/089c1e0701c82d16e9431831a2d57de8/ce1a77f2aa42090d-c5/s540x810/7667c312e8e796272d5ceb5b864f11f68c4c3e4a.gifv'
