@@ -7,6 +7,7 @@ import backgrounds
 
 import test_server_funcs
 import small_funcs
+import happy_squad
 import moderation
 import political
 import verifier
@@ -66,7 +67,8 @@ async def on_connect():
     metacore.setup(bot)
     test_server_funcs.setup(bot)
     moderation.setup(bot)
-    political.setup(bot)
+    # political.setup(bot)
+    # happy_squad.setup(bot)
 
     await _update_server_count()
     await bot.sync_all_application_commands()

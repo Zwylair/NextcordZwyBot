@@ -32,7 +32,7 @@ class TestCommandsCog(nextcord.ext.commands.Cog):
 
         await interaction.send(embeds=embeds, ephemeral=True)
 
-    @nextcord.slash_command(name='eval', description='Eval')
+    @nextcord.slash_command(name='eval', description='Eval', guild_ids=[settings.TEST_GUILD_ID])
     async def eval_cmd(self, interaction: nextcord.Interaction,
                        text_to_eval: str = nextcord.SlashOption(name='text_to_eval', description='text_to_eval', required=True)):
         if interaction.user.id != settings.OWNER_ID:
