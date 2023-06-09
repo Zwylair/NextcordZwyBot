@@ -1,6 +1,7 @@
 import sqlite3
 import nextcord.ext.commands
 import political.vote
+import settings
 
 
 class PoliticalCog(nextcord.ext.commands.Cog):
@@ -13,7 +14,7 @@ class PoliticalCog(nextcord.ext.commands.Cog):
 
     @politics.subcommand(name='create_sql', description='create_sql')
     async def create_sql(self, interaction: nextcord.Interaction):
-        sql = sqlite3.connect('db.sql')
+        sql = sqlite3.connect(settings.SQL_DB_PATH)
         sql.execute("DROP TABLE political")
         sql.commit()
         sql.execute(f"CREATE TABLE political (name varchar(255), desc varchar(255), banner_url varchar(255), popularity int)")
@@ -30,7 +31,7 @@ class PoliticalCog(nextcord.ext.commands.Cog):
                                                                   description='party_banner_url', required=False)):
         banner_url = '' if banner_url is None else banner_url
     
-        sql = sqlite3.connect('db.sql')
+        sql = sqlite3.connect(settings.SQL_DB_PATH)
         sql.execute(f"INSERT INTO political (name, desc, banner_url, popularity) VALUES ('{name}', '{desc}', '{banner_url}', '0')")
         sql.commit()
         sql.close()
@@ -40,7 +41,7 @@ class PoliticalCog(nextcord.ext.commands.Cog):
 
     @politics.subcommand(name='browse', description='browse')
     async def browse(self, interaction: nextcord.Interaction):
-        sql = sqlite3.connect('db.sql')
+        sql = sqlite3.connect(settings.SQL_DB_PATH)
         req = sql.execute("SELECT * FROM political").fetchall()
         sql.close()
 
@@ -55,7 +56,7 @@ class PoliticalCog(nextcord.ext.commands.Cog):
     async def vote(self, interaction: nextcord.Interaction,
                    channel: nextcord.TextChannel = nextcord.SlashOption(name='channel', description='channel'),
                    desc: str = nextcord.SlashOption(name='party_desc', description='party_desc')):
-        sql = sqlite3.connect('db.sql')
+        sql = sqlite3.connect(settings.SQL_DB_PATH)
         req = sql.execute("SELECT * FROM political").fetchall()
         sql.close()
 

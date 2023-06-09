@@ -1,4 +1,5 @@
 import sqlite3
+import logging
 import nextcord.ext.commands
 
 import settings
@@ -7,13 +8,16 @@ import backgrounds
 
 import test_server_funcs
 import small_funcs
-import happy_squad
+# import happy_squad
 import moderation
-import political
+# import political
 import verifier
 import metacore
 import games
+import meme
 # from auto import AutoSender
+
+logging.basicConfig(level=logging.ERROR, format='[%(asctime)s | %(levelname)s]: %(message)s')
 
 bot = nextcord.ext.commands.Bot(intents=nextcord.Intents().all())
 backgrounds.start_keeping()
@@ -27,7 +31,18 @@ async def _update_server_count():
 
 @bot.event
 async def on_connect():
-    sql = sqlite3.connect('db.sql')
+    print(f'Checking for {settings.SQL_DB_PATH} and its correct structure')
+    sql = sqlite3.connect(settings.SQL_DB_PATH)
+    for k, v in settings.DB_CREATE_SEQUENCE.items():
+        print(f'\tChecking for "{k}" table :: ', end='')
+        try:
+            sql.execute(f'SELECT * FROM {k}')
+        except sqlite3.OperationalError:
+            print(f'Incorrect. Creating "{k}" from backup')
+            sql.execute(v)
+            sql.commit()
+        else:
+            print('Correct')
 
     # update existing views
     results = sql.execute("SELECT * FROM views")
@@ -69,6 +84,7 @@ async def on_connect():
     moderation.setup(bot)
     # political.setup(bot)
     # happy_squad.setup(bot)
+    meme.setup(bot)
 
     await _update_server_count()
     await bot.sync_all_application_commands()

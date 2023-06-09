@@ -1,9 +1,9 @@
 import random
 import nextcord.ext.commands
-import openai
-import settings
+# import openai
+# import settings
 
-openai.api_key = settings.OPENAI_API_KEY
+# openai.api_key = settings.OPENAI_API_KEY
 
 
 class FuncsCog(nextcord.ext.commands.Cog):

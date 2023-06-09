@@ -1,6 +1,7 @@
 import sqlite3
 import nextcord
 from verifier.db import VerifierBaseEmbedView
+import settings
 
 
 class VerifierView(nextcord.ui.View):
@@ -36,7 +37,7 @@ class VerifierEmbedView(VerifierBaseEmbedView):
         
         self.out_embed.remove_field(0)
 
-        sql = sqlite3.connect('db.sql')
+        sql = sqlite3.connect(settings.SQL_DB_PATH)
         view = VerifierView(self.give_role)
         msg = await self.out_chat.send(embed=self.out_embed, view=view)
         

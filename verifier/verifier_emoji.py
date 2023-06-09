@@ -1,7 +1,7 @@
 import sqlite3
 import nextcord.ext.commands
 
-from settings import SQL_DB_PATH
+import settings
 from basic_funcs import is_role_exist
 from verifier.db import VerifierBaseEmbedView
 
@@ -13,7 +13,7 @@ class VerifierCogListener(nextcord.ext.commands.Cog):
     @nextcord.ext.commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: nextcord.RawReactionActionEvent):
         if payload.emoji.name == '☑️':
-            sql = sqlite3.connect(SQL_DB_PATH)
+            sql = sqlite3.connect(settings.SQL_DB_PATH)
             result = sql.execute(f"SELECT role_id FROM verifier_emoji WHERE message_id='{payload.message_id}'").fetchone()
 
             if not await is_role_exist(self.bot, payload.guild_id, result[0]):
@@ -44,7 +44,7 @@ class VerifierEmbedEmojiView(VerifierBaseEmbedView):
         
         self.out_embed.remove_field(0)
         
-        sql = sqlite3.connect('db.sql')
+        sql = sqlite3.connect(settings.SQL_DB_PATH)
         msg = await self.out_chat.send(embed=self.out_embed)
 
         await msg.add_reaction('☑️')
