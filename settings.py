@@ -28,5 +28,6 @@ DB_CREATE_SEQUENCE = {
     'bot': "CREATE TABLE bot(user_id int)",
     'political': "CREATE TABLE political (name varchar(255), desc varchar(255), banner_url varchar(255), popularity int)",
     'verifier_emoji': "CREATE TABLE verifier_emoji (role_id bigint, message_id bigint)",
-    'views': "CREATE TABLE views (view_type varchar(255), guild_id BIGINT, channel_id BIGINT, message_id BIGINT, role_id BIGINT)"
+    'views': "CREATE TABLE views (view_type varchar(255), guild_id BIGINT, channel_id BIGINT, message_id BIGINT, role_id BIGINT)",
+    'event_templates': "CREATE TABLE event_templates (server_id BIGINT, template_name varchar(255), embed_bytes varbinary(4096))"
 }

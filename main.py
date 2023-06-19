@@ -13,6 +13,7 @@ import moderation
 # import political
 import verifier
 import metacore
+# import events
 import games
 import meme
 # from auto import AutoSender
@@ -85,6 +86,7 @@ async def on_connect():
     # political.setup(bot)
     # happy_squad.setup(bot)
     meme.setup(bot)
+    # events.setup(bot)
 
     await _update_server_count()
     await bot.sync_all_application_commands()

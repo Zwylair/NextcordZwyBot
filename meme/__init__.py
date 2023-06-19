@@ -102,6 +102,8 @@ class MemesCog(nextcord.ext.commands.Cog):
                 new_size = (int(img.size[0] / 2), int(img.size[1] / 2))
             case img.size if img.size[0] > 1500 or img.size[1] > 1500:
                 new_size = (int(img.size[0] / 4), int(img.size[1] / 4))
+            case img.size if img.size[0] > 2 and img.size[1] > 2:
+                new_size = (int(img.size[0] - 1), int(img.size[1] - 1))
             case _:
                 new_size = img.size
 
