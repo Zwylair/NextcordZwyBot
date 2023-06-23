@@ -26,6 +26,7 @@ class GlobalView(nextcord.ui.View):
         self.enemies = {}
         self.allys = {}
         self.players = {}
+        self.allow_to_regen_countries = True
 
     @staticmethod
     def check(author: nextcord.Member | nextcord.User, channel: typing.Any, message: nextcord.Message):
@@ -40,7 +41,7 @@ class GlobalView(nextcord.ui.View):
         msg_answer: nextcord.Message = await msg_answer.channel.fetch_message(msg_answer.id)
 
         self.users_in = [interaction.guild.get_member(int(i)) for i in msg_answer.content.split(' ')]
-        
+
         await que.delete()
         await msg_answer.delete()
 
@@ -59,13 +60,21 @@ class GlobalView(nextcord.ui.View):
         await que.delete()
         await msg_answer.delete()
 
+    @nextcord.ui.button(label='Show players + ids', style=nextcord.ButtonStyle.gray)
+    async def show_ids(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
+        embed = nextcord.Embed(title='ids', colour=nextcord.Colour.brand_green())
+        embed.add_field(name='', value='\n'.join([f'{player.mention} ({self.flags[self.countries_list.index(country)]}) -> {player.id}' for player, country in self.players.items()]))
+
+        await interaction.send(embed=embed, ephemeral=True)
+
     @nextcord.ui.button(label='Randomise countries', style=nextcord.ButtonStyle.gray)
     async def randomise(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
-        countries_list = copy.deepcopy(self.countries_list)
-        for i in self.users_in:
-            country = random.choice(countries_list)
-            self.players |= {i: country}
-            countries_list.remove(country)
+        if self.allow_to_regen_countries:
+            countries_list = copy.deepcopy(self.countries_list)
+            for i in self.users_in:
+                country = random.choice(countries_list)
+                self.players |= {i: country}
+                countries_list.remove(country)
 
         embed = nextcord.Embed(title='Eta zalupa pizdec bagannaya, smotrite chtobi ne bilo povtorok na teh zhe liniyah', colour=nextcord.Colour.brand_green())
         players = [f'{k.mention}: {self.flags[self.countries_list.index(v)]}' for k, v in self.players.items()]
@@ -114,6 +123,39 @@ class GlobalView(nextcord.ui.View):
         embed.add_field(name='Allys', value='\n'.join(ally_list))
 
         await interaction.send(embed=embed, ephemeral=True)
+
+    @nextcord.ui.button(label='Allow/disallow countries regen', style=nextcord.ButtonStyle.gray)
+    async def countries_regen(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
+        self.allow_to_regen_countries = not self.allow_to_regen_countries
+    
+        await interaction.send(f'self.allow_to_regen_countries is now {self.allow_to_regen_countries}', ephemeral=True)
+
+    @nextcord.ui.button(label='Set countries', style=nextcord.ButtonStyle.gray)
+    async def set_countries(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
+        que = await interaction.send('Отправьте сообщение с template as "<player-ds-id>=<country-id-in-list> <player-ds-id>=<country-id-in-list>..."', ephemeral=True)
+        await que.edit(view=CancelView(que))
+        msg_answer = await self.bot.wait_for('message', check=lambda x: self.check(interaction.user, interaction.channel, x))
+        msg_answer: nextcord.Message = await msg_answer.channel.fetch_message(msg_answer.id)
+    
+        content = msg_answer.content + ' ' if ' ' not in msg_answer.content else msg_answer.content
+        self.players = {}
+        for line in content.split(' '):
+            if line:
+                raw_player_info = line.split('=')
+                raw_player, raw_player_country_id = raw_player_info
+                player = interaction.guild.get_member(int(raw_player))
+                country = self.countries_list[int(raw_player_country_id)]
+                
+                self.players |= {player: country}
+
+        await que.delete()
+        await msg_answer.delete()
+
+        embed = nextcord.Embed(title='Ya chepush', colour=nextcord.Colour.brand_green())
+        players = [f'{k.mention}: {self.flags[self.countries_list.index(v)]}' for k, v in self.players.items()]
+        embed.add_field(name='Players', value=' '.join(players), inline=False)
+
+        await interaction.send('Players now:', embed=embed, ephemeral=True)
 
     @nextcord.ui.button(label='Send cards', style=nextcord.ButtonStyle.gray)
     async def send_cards(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
