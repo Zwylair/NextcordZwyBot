@@ -21,8 +21,13 @@ class GlobalView(nextcord.ui.View):
 
         self.bot = bot
         self.users_in: list[nextcord.Member | None] | None = None
-        self.countries_list = ['Армения', 'США', 'Италия', 'Германия', 'Зимбабве', 'Ватикан', 'Казахстан', 'Швейцария', 'КНДР', 'Нигер', 'Япония', 'Грузия']
-        self.flags = [':flag_am:', ':flag_us:', ':flag_it:', ':flag_de:', ':flag_zw:', ':flag_va:', ':flag_kz:', ':flag_ch:', ':flag_kp:', ':flag_ne:', ':flag_jp:', ':flag_ge:']
+        self.countries_list = ['Армения', 'Германия', 'Казахстан', 'Нигер', 'США', 'Зимбабве', 'Швейцария', 'Япония', 'Украина', 'Ватикан', 'КНДР', 'Грузия']
+        self.flags = [':flag_am:', ':flag_de:', ':flag_kz:', ':flag_ne:', ':flag_us:', ':flag_zw:', ':flag_ch:', ':flag_jp:', ':flag_ua:', ':flag_va:', ':flag_kp:', ':flag_ge:']
+
+        # 8
+        # self.countries_list = ['Армения', 'Германия', 'Казахстан', 'Нигер', 'США', 'Зимбабве', 'Швейцария', 'Украина']
+        # self.flags = [':flag_am:', ':flag_de:', ':flag_kz:', ':flag_ne:', ':flag_us:', ':flag_zw:', ':flag_ch:', ':flag_ua:']
+
         self.enemies = {}
         self.allys = {}
         self.players = {}
