@@ -1,4 +1,3 @@
-import asyncio
 import nextcord.ext.commands
 import settings
 
@@ -38,8 +37,7 @@ class TestCommandsCog(nextcord.ext.commands.Cog):
         if interaction.user.id != settings.OWNER_ID:
             return
 
-        print(text_to_eval)
-        ret = asyncio.run(eval(text_to_eval))
+        ret = eval(text_to_eval)
         await interaction.send(f'{ret}', ephemeral=True)
 
     # @nextcord.slash_command(name='test', description='test', guild_ids=[settings.TEST_GUILD_ID])
