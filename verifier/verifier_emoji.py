@@ -2,7 +2,7 @@ import sqlite3
 import nextcord.ext.commands
 
 import settings
-from basic_funcs import is_role_exist
+from funcs import is_role_exist
 from verifier.db import VerifierBaseEmbedView
 
 

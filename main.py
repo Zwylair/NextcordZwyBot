@@ -2,19 +2,12 @@ import sqlite3
 import logging
 import nextcord.ext.commands
 import settings
-import basic_funcs
+import funcs
 import backgrounds
 import test_server_funcs
 import small_funcs
 import moderation
 import verifier
-# import happy_squad
-# import political
-# import metacore
-# import events
-# import meme
-# import games
-# from auto import AutoSender
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='[%(asctime)s | %(levelname)s | %(name)s]: %(message)s')
@@ -55,10 +48,10 @@ async def on_connect():
         data: tuple[str | None, int | None, int | None, int | None, int | None]
         view_type, guild_id, chat_id, message_id, role_id = data
         
-        if await basic_funcs.is_message_exist(bot, guild_id, chat_id, message_id):
+        if await funcs.is_message_exist(bot, guild_id, chat_id, message_id):
             match view_type:
                 case 'verifier_view':
-                    if not await basic_funcs.is_role_exist(bot, guild_id, role_id):
+                    if not await funcs.is_role_exist(bot, guild_id, role_id):
                         view_guild = bot.get_guild(guild_id)
                         view_chat = view_guild.get_channel(chat_id)
                         view_message = await view_chat.fetch_message(message_id)

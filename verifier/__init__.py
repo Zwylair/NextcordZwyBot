@@ -1,6 +1,6 @@
 import typing
 import nextcord.ext.commands
-import basic_funcs
+import funcs
 import settings
 
 import verifier.verifier_view
@@ -21,7 +21,7 @@ class VerifierCog(nextcord.ext.commands.Cog):
                        verification_type: typing.Literal['button', 'emoji'] = nextcord.SlashOption(name='verification_type',
                                                                                                    description='Тип верификации',
                                                                                                    required=True)):
-        if not await basic_funcs.check_for_administrator_perm(interaction):
+        if not await funcs.check_for_administrator_perm(interaction):
             return
         
         verification_type = 'view' if verification_type == 'button' else verification_type
