@@ -1,89 +1,102 @@
-import sqlite3
+import os
 import logging
 import nextcord.ext.commands
-import settings
-import funcs
-import backgrounds
 import test_server_funcs
 import small_funcs
 import moderation
 import verifier
+import events
+from settings import *
+import zwyFramework
+import funcs
+import db
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='[%(asctime)s | %(levelname)s | %(name)s]: %(message)s')
 logger.setLevel(logging.INFO)
 bot = nextcord.ext.commands.Bot(intents=nextcord.Intents().all())
 
-backgrounds.start_keeping()
+logger.info(f'Validating the database')
+
+conn = db.get_conn()
+cur = conn.cursor()
+
+if tuple(i.to_string() for i in zwyFramework.get_sqlite_dumps(cur)) != DB_DUMPS:
+    do_wipe_storage = input('db dumps doesnt match with saved ones. wipe storage? (y/n): ')
+    do_wipe_storage = True if do_wipe_storage.lower() == 'y' else False
+
+    if do_wipe_storage:
+        cur.close()
+        conn.close()
+        os.remove(SQL_DB_PATH)
+
+        conn = db.get_conn()
+        cur = conn.cursor()
+
+        # restore tables from saved dumps
+        for dump in DB_DUMPS:
+            cur.execute(dump)
+
+logger.info('The database was validated')
 
 
 async def _update_server_count():
-    await bot.change_presence(activity=nextcord.Activity(type=nextcord.ActivityType.watching,
-                                                         name=f'PornHub | {len(bot.guilds)} Servers'),
-                              status=nextcord.Status.dnd)
+    await bot.change_presence(
+        activity=nextcord.Activity(
+            type=nextcord.ActivityType.watching,
+            name=f'bebebe | {len(bot.guilds)} Servers'
+        ),
+        status=nextcord.Status.dnd
+    )
 
 
 @bot.event
 async def on_connect():
-    logger.info(f'Checking for {settings.SQL_DB_PATH} and its correct structure')
-
-    sql = sqlite3.connect(settings.SQL_DB_PATH)
-    cursor = sql.cursor()
-
-    for k, v in settings.DB_CREATE_SEQUENCE.items():
-        logger.info(f'Checking for "{k}" table:')
-
-        try:
-            sql.execute(f'SELECT * FROM {k}')
-        except sqlite3.OperationalError:
-            logger.info(f'\tIncorrect. Creating "{k}" from backup')
-            cursor.execute(v)
-        else:
-            logger.info('\tCorrect')
-        sql.commit()
-
-    # update existing views
-    results = cursor.execute("SELECT * FROM views")
+    # connect to existing views
+    results = cur.execute("SELECT * FROM views")
     for data in results.fetchall():
         data: tuple[str | None, int | None, int | None, int | None, int | None]
         view_type, guild_id, chat_id, message_id, role_id = data
-        
-        if await funcs.is_message_exist(bot, guild_id, chat_id, message_id):
-            match view_type:
-                case 'verifier_view':
-                    if not await funcs.is_role_exist(bot, guild_id, role_id):
-                        view_guild = bot.get_guild(guild_id)
-                        view_chat = view_guild.get_channel(chat_id)
-                        view_message = await view_chat.fetch_message(message_id)
-                        view_embed = view_message.embeds[0]
 
-                        view_embed.set_footer(text='Верификация остановила свою работу из-за отсутствие выдаваемой роли. Для решения - пересоздайте сообщение верификации с новой ролью')
-                        await view_message.edit(embed=view_embed)
+        if not await funcs.is_message_exist(bot, guild_id, chat_id, message_id):
+            cur.execute(f"DELETE FROM views WHERE message_id='{message_id}'")
+            continue
 
-                        role = None
-                    else:
-                        role = bot.get_guild(guild_id).get_role(role_id)
+        match view_type:
+            case 'verifier_view':
+                if not await funcs.is_role_exist(bot, guild_id, role_id):
+                    view_guild = bot.get_guild(guild_id)
+                    view_chat = view_guild.get_channel(chat_id)
+                    view_message = await view_chat.fetch_message(message_id)
+                    view_embed = view_message.embeds[0]
 
-                    view = verifier.verifier_view.VerifierView(role=role)
-                case _:
-                    view = nextcord.ui.View
+                    view_embed.set_footer(
+                        text='Verification was stopped because attached role was deleted. '
+                             'Recreate the verification message with a new role for resolving'
+                    )
+                    await view_message.edit(embed=view_embed)
 
-            bot.add_view(view, message_id=message_id)
-        else:
-            cursor.execute(f"DELETE FROM views WHERE message_id='{message_id}'")
-            sql.commit()
-    sql.close()
+                    role = None
+                else:
+                    role = bot.get_guild(guild_id).get_role(role_id)
+
+                view = verifier.verifier_view.VerifierView(role=role)
+            case _:
+                view = nextcord.ui.View
+        bot.add_view(view, message_id=message_id)
+
+    conn.commit()
 
     verifier.setup(bot)
     small_funcs.setup(bot)
     test_server_funcs.setup(bot)
     moderation.setup(bot)
+    events.setup(bot)
 
     await _update_server_count()
     await bot.sync_all_application_commands()
 
     logger.info(f'Logged as {bot.user}')
-    # await AutoSender(bot).poll()
 
 
 @bot.event
@@ -97,31 +110,23 @@ async def on_guild_remove(_: nextcord.Guild):
 
 
 @bot.slash_command(name='help', description='Помощь по командам')
-async def help_command(interaction: nextcord.Interaction):  # allow: bool = nextcord.SlashOption(name='allow', description='allow', required=False)
-    commands_dict = {cmd_name: cmd for cmd_name, cmd in bot.all_commands.items()}
+async def help_command(interaction: nextcord.Interaction):
+    commands_dict = {cmd_name: cmd.description for cmd_name, cmd in bot.all_commands.items() if cmd.name == cmd.description}
 
     for cog in bot.cogs:
         cog = bot.get_cog(cog)
 
         for cmd in cog.application_commands:
             if interaction.guild_id in cmd.guild_ids or cmd.is_global:
+                if cmd.name == cmd.description:
+                    continue
                 commands_dict[cmd.name] = cmd.description
 
-    embed = nextcord.Embed(title='Помощь', colour=0xf0dfaa)
+    embed = nextcord.Embed(title='📙 Помощь', colour=0xf9f9f9)
     for cmd_name, cmd_desc in commands_dict.items():
         embed.add_field(name=f'```/{cmd_name}```', value=f'```{cmd_desc}```')
 
     await interaction.send(embed=embed, ephemeral=True)
 
-    # allow = False if allow is None else allow
-    # if interaction.user.id == settings.OWNER_ID and interaction.guild_id == settings.HAPPY_SQUAD_GUILD_ID and allow:
-    #     if interaction.guild.me.nick != 'ZwyBot':
-    #         await interaction.guild.me.edit(nick='ZwyBot')
-    #
-    #     if interaction.user.top_role != interaction.guild.get_role(1102602842268770387):
-    #         await interaction.user.add_roles(nextcord.Object(1102602842268770387))
-    #     else:
-    #         await interaction.user.remove_roles(nextcord.Object(1102602842268770387))
 
-
-bot.run(settings.TOKEN)
+bot.run(TOKEN)

@@ -1,7 +1,6 @@
-import sqlite3
 import nextcord
 from verifier.db import VerifierBaseEmbedView
-import settings
+import db
 
 
 class VerifierView(nextcord.ui.View):
@@ -12,7 +11,6 @@ class VerifierView(nextcord.ui.View):
     async def is_role_still_existing(self, guild: nextcord.Guild):
         if self.role is None:
             return False
-        print(guild.get_role(self.role.id))
         return False if guild.get_role(self.role.id) is None else True
 
     @nextcord.ui.button(label='✅', style=nextcord.ButtonStyle.green, custom_id='verification')
@@ -22,8 +20,10 @@ class VerifierView(nextcord.ui.View):
             await interaction.send('Роль выдана!', ephemeral=True)
         else:
             embed = interaction.message.embeds[0]
-            embed.set_footer(text='Верификация остановила свою работу из-за отсутствие выдаваемой роли. Для решения - пересоздайте сообщение верификации с новой ролью')
-            
+            embed.set_footer(
+                text='Верификация остановила свою работу из-за отсутствие выдаваемой роли. '
+                     'Для решения - пересоздайте сообщение верификации с новой ролью'
+            )
             await interaction.message.edit(embed=embed)
 
 
@@ -37,13 +37,18 @@ class VerifierEmbedView(VerifierBaseEmbedView):
         
         self.out_embed.remove_field(0)
 
-        sql = sqlite3.connect(settings.SQL_DB_PATH)
+        conn = db.get_conn()
+        cur = conn.cursor()
         view = VerifierView(self.give_role)
         msg = await self.out_chat.send(embed=self.out_embed, view=view)
         
-        sql.execute(f"INSERT INTO views (view_type, guild_id, channel_id, message_id, role_id) VALUES ('verifier_view', '{self.out_chat.guild.id}', '{self.out_chat.id}', '{msg.id}', '{self.give_role.id}')")
-        sql.commit()
-        sql.close()
+        cur.execute(
+            f'INSERT INTO views (view_type, guild_id, channel_id, message_id, role_id) VALUES (?, ?, ?, ?, ?)',
+            ('verifier_view', self.out_chat.guild.id, self.out_chat.id, msg.id, self.give_role.id)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
 
         await interaction.send('Сообщение отправлено!', ephemeral=True)
         await self.embed_message.delete()
