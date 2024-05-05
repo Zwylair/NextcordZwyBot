@@ -1,7 +1,7 @@
 import io
 import nextcord
 from nextcord.ext.commands import Bot
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 
 async def is_message_exist(bot: Bot, guild_id: int, channel_id: int, message_id: int) -> bool:
@@ -36,29 +36,48 @@ async def make_pastel_color(rgb_tuple, factor=0.5):
     return pastel_r, pastel_g, pastel_b
 
 
-async def get_average_color(io_storage: io.BytesIO) -> nextcord.Color:
-    img = Image.open(io_storage)
-    img = img.convert("RGBA")
-    width, height = img.size
-    pixel_data = img.load()
+async def get_average_color(image: Image.Image | io.BytesIO | bytes) -> tuple[int, int, int]:
+    if isinstance(image, bytes):
+        image = Image.open(io.BytesIO(image))
+    elif isinstance(image, io.BytesIO):
+        image = Image.open(image)
+    elif isinstance(image, Image.Image):
+        pass
+    else:
+        raise ValueError(f'Unknown {type(image)} image type.')
+
+    image = image.convert("RGBA")
+    width, height = image.size
+    pixel_data = image.load()
 
     r_total = 0
     g_total = 0
     b_total = 0
-    total_pixels = width * height
+    total_pixels = 0
 
     for y in range(height):
         for x in range(width):
-            r, g, b, _ = pixel_data[x, y]
+            r, g, b, a = pixel_data[x, y]
+
+            if a < 200:
+                continue
+
+            total_pixels += 1
             r_total += r
             g_total += g
             b_total += b
 
-    average_color = (
-        int(r_total / total_pixels),
-        int(g_total / total_pixels),
-        int(b_total / total_pixels)
-    )
+    if total_pixels == 0:
+        total_pixels = 1
 
-    r, g, b = await make_pastel_color(average_color, factor=0.1)
-    return nextcord.Color(int('{:02x}{:02x}{:02x}'.format(r, g, b), 16))
+    average_color_image = Image.new(
+        mode="RGB",
+        size=(1, 1),
+        color=(
+            int(r_total / total_pixels),
+            int(g_total / total_pixels),
+            int(b_total / total_pixels)
+        )
+    )
+    average_color = ImageEnhance.Color(average_color_image).enhance(1.5).getpixel((0, 0))
+    return average_color

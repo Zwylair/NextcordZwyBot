@@ -1,7 +1,7 @@
 import os
 import logging
 import nextcord.ext.commands
-import test_server_funcs
+import dev_features
 import small_funcs
 import moderation
 import verifier
@@ -43,15 +43,23 @@ logger.info('The database was validated')
 async def _update_server_count():
     await bot.change_presence(
         activity=nextcord.Activity(
-            type=nextcord.ActivityType.watching,
-            name=f'bebebe | {len(bot.guilds)} Servers'
+            name=f'/help | {len(bot.guilds)} servers',
+            type=nextcord.ActivityType.playing
         ),
-        status=nextcord.Status.dnd
+        status=nextcord.Status.online
     )
 
 
 @bot.event
 async def on_connect():
+    await bot.change_presence(
+        activity=nextcord.Activity(
+            type=nextcord.ActivityType.streaming,
+            name='Starting...'
+        ),
+        status=nextcord.Status.dnd
+    )
+
     # connect to existing views
     results = cur.execute("SELECT * FROM views")
     for data in results.fetchall():
@@ -87,14 +95,14 @@ async def on_connect():
 
     conn.commit()
 
+    dev_features.setup(bot)
     verifier.setup(bot)
     small_funcs.setup(bot)
-    test_server_funcs.setup(bot)
     moderation.setup(bot)
     events.setup(bot)
 
-    await _update_server_count()
     await bot.sync_all_application_commands()
+    await _update_server_count()
 
     logger.info(f'Logged as {bot.user}')
 
