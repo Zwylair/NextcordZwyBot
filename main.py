@@ -1,3 +1,4 @@
+import asyncio
 import os
 import logging
 import nextcord.ext.commands
@@ -5,6 +6,7 @@ import dev_features
 import small_funcs
 import moderation
 import verifier
+import temp_voice
 import events
 from settings import *
 import zwyFramework
@@ -60,46 +62,60 @@ async def on_connect():
         status=nextcord.Status.dnd
     )
 
+    await asyncio.sleep(0.5)
+
     # connect to existing views
-    results = cur.execute("SELECT * FROM views")
+    results = cur.execute('SELECT * FROM views')
     for data in results.fetchall():
         data: tuple[str | None, int | None, int | None, int | None, int | None]
         view_type, guild_id, chat_id, message_id, role_id = data
 
         if not await funcs.is_message_exist(bot, guild_id, chat_id, message_id):
-            cur.execute(f"DELETE FROM views WHERE message_id='{message_id}'")
+            cur.execute(f'DELETE FROM views WHERE message_id=?', (message_id, ))
             continue
+
+        view_guild = bot.get_guild(guild_id)
+        view_chat = view_guild.get_channel(chat_id)
+        view_message = await view_chat.fetch_message(message_id)
 
         match view_type:
             case 'verifier_view':
                 if not await funcs.is_role_exist(bot, guild_id, role_id):
-                    view_guild = bot.get_guild(guild_id)
-                    view_chat = view_guild.get_channel(chat_id)
-                    view_message = await view_chat.fetch_message(message_id)
                     view_embed = view_message.embeds[0]
-
                     view_embed.set_footer(
                         text='Verification was stopped because attached role was deleted. '
                              'Recreate the verification message with a new role for resolving'
                     )
-                    await view_message.edit(embed=view_embed)
 
+                    await view_message.edit(embed=view_embed)
                     role = None
                 else:
                     role = bot.get_guild(guild_id).get_role(role_id)
 
                 view = verifier.verifier_view.VerifierView(role=role)
-            case _:
+
+            case 'create_temp_voice_view':
+                view = temp_voice.CreatePrivateVoiceView(bot)
+                await view_message.edit(view=view)
+
+            case _:  # plug
                 view = nextcord.ui.View
-        bot.add_view(view, message_id=message_id)
+
+        if view.timeout is None:
+            bot.add_view(view)
+        else:
+            bot.add_view(view, message_id=message_id)
 
     conn.commit()
 
     dev_features.setup(bot)
     verifier.setup(bot)
+    temp_voice.setup(bot)
     small_funcs.setup(bot)
     moderation.setup(bot)
     events.setup(bot)
+
+    await temp_voice.setup_listener(bot)
 
     await bot.sync_all_application_commands()
     await _update_server_count()

@@ -6,7 +6,9 @@ from PIL import Image, ImageEnhance
 
 async def is_message_exist(bot: Bot, guild_id: int, channel_id: int, message_id: int) -> bool:
     try:
-        await bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id)
+        guild = next((i for i in bot.guilds if i.id == guild_id), None)
+        channel = guild.get_channel(channel_id)
+        await channel.fetch_message(message_id)
     except (nextcord.NotFound, AttributeError):  # AttributeError raises when guild or channel is None
         return False
     return True
