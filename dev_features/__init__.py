@@ -1,18 +1,21 @@
 import io
-
+import re
 import nextcord.ext.commands
-
 import funcs
-import settings
+from settings import *
 
 
 class DevFeaturesCog(nextcord.ext.commands.Cog):
     def __init__(self, bot: nextcord.ext.commands.Bot):
         self.bot = bot
 
-    @nextcord.slash_command(name='guilds_info', description='Shows information about any guild that this bot participates in', guild_ids=[settings.TEST_GUILD_ID])
+    @nextcord.slash_command(
+        name='guilds_info',
+        description='Shows information about any guild that this bot participates in',
+        guild_ids=[TEST_GUILD_ID]
+    )
     async def guilds_info(self, interaction: nextcord.Interaction):
-        if interaction.user.id != settings.OWNER_ID:
+        if interaction.user.id != OWNER_ID:
             return
 
         embeds = []
@@ -47,6 +50,49 @@ class DevFeaturesCog(nextcord.ext.commands.Cog):
             embeds.append(embed)
 
         await interaction.send(embeds=embeds, ephemeral=True)
+
+    @nextcord.slash_command(name='extract_emojis', description='Extract emoji\'s webhook tag', guild_ids=[TEST_GUILD_ID])
+    async def extract_emojis(
+        self, interaction: nextcord.Interaction,
+        message_url: str = nextcord.SlashOption(
+            name='message_url',
+            description='Link to the message with emojis'
+        )
+    ):
+        if interaction.user.id != OWNER_ID:
+            return
+
+        # ['https:', '', 'discord.com', 'channels', '{server_id}', '{channel_id}', '{message_id}']
+        match message_url.split('/'):
+            case ['https:', '', 'discord.com', 'channels', _, channel_id, message_id, *_]:
+                # Get input message content
+                try:
+                    channel = self.bot.get_channel(int(channel_id))
+                    msg = await channel.fetch_message(int(message_id))
+                except (nextcord.NotFound, nextcord.Forbidden):
+                    embed = nextcord.Embed(
+                        title='Ошибка! :stop_sign:', colour=0xEC0D6D,
+                        description='Неверная ссылка на сообщение / Данное сообщение не найдено!'
+                    )
+                    await interaction.send(embed=embed, ephemeral=True)
+                    return
+                else:
+                    emojis = re.findall(EMOJI_REGEX, msg.content)
+                    embed = nextcord.Embed(title='Emojis', colour=0xFFFFFF)
+
+                    for i in emojis:
+                        animated, name, emoji_id = i
+                        raw_emoji = f'<{animated}:{name}:{emoji_id}>'
+                        embed.add_field(name=raw_emoji, value=f'`{raw_emoji}`')
+
+                    await interaction.send(embed=embed, ephemeral=True)
+                    return
+            case _:
+                embed = nextcord.Embed(
+                    title='Ошибка! :stop_sign:', colour=0xEC0D6D,
+                    description='Неверная ссылка на сообщение / Данное сообщение не найдено!'
+                )
+                await interaction.send(embed=embed, ephemeral=True)
 
     # @nextcord.slash_command(name='test', description='test', guild_ids=[settings.TEST_GUILD_ID])
     # async def test(self, interaction: nextcord.Interaction):
