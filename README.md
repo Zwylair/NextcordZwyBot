@@ -8,31 +8,47 @@
     <img src="https://img.shields.io/github/languages/code-size/Zwylair/NextcordZwyBot?style=for-the-badge">
 </p>
 
-Discord bot made on [nextcord](https://docs.nextcord.dev/en/stable/api.html) lib and with Zwy's needed features.
+Discord bot made with [nextcord](https://docs.nextcord.dev/en/stable/api.html) lib and with Zwy's needed features.
 
 #### Features:
+* Create private temporary voice channels to talk with your buddies alone
 * Make events announce it in certain channel, save it as templates to use it in future
 * Administrator commands:
 * * `caps checker`
 * * `role edit` (edit color and name); `role move`; `role revoke`; `role give`
 * `dice` command, that allows to throw **n** dices
-* And some test commands:
+* And some dev commands:
 * * `guilds_info` which provides a small info-card of the guilds the bot is a member of
+* * `extract_emojis` extracts server emojis to webhook/bot tag (`<(a):name:id>`)
 
-## Setup and Dependencies
+# Setup and Dependencies
 Clone the repository:
 ```
 git clone https://github.com/Zwylair/NextcordZwyBot
 ```
 
-Install the dependencies:
-```
+## Install dependencies
+
+#### Linux
+```bash
 python3 -m pip install -r requirements.txt
 ```
 
-Run the bot:
+#### Windows
+```bash
+py -m pip install -r requirements.txt
 ```
+
+## Running
+
+#### Linux
+```bash
 python3 main.py
+```
+
+#### Windows
+```bash
+py main.py
 ```
 
 ## License
