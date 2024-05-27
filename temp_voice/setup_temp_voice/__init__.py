@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import nextcord.ext.commands
+from settings import *
 import db
 
 
@@ -9,6 +10,12 @@ class DeleteOptions:
     LOCALIZATION = {
         NOBODY_IN_VOICE: 'Никого в гс',
     }
+
+
+@dataclass
+class ActionWithUsers:
+    ADD = 1
+    REMOVE = 2
 
 
 class SetupPrivateVoiceView(nextcord.ui.View):
@@ -30,13 +37,9 @@ class SetupPrivateVoiceView(nextcord.ui.View):
         self.set_vc_name_to_default()
 
     def set_vc_name_to_default(self):
-        # user.nick != user.display_name is different when user's nick is changed on server
-        if self.author.nick != self.author.display_name:
-            author_nick = self.author.display_name
-        else:
-            author_nick = self.author.global_name
-
-        self.vc_name = f'{author_nick}\'s channel'
+        # user.nick is server name of user. using default name if not set
+        author_name = self.author.global_name if self.author.nick is None else self.author.nick
+        self.vc_name = f'{author_name}\'s channel'
 
     async def update_embed(self):
         members_str = ' '.join([i.mention for i in self.allowed_members])
@@ -51,7 +54,7 @@ class SetupPrivateVoiceView(nextcord.ui.View):
 
         await self.status_message.edit(content='', embed=embed)
 
-    @nextcord.ui.button(label='Создать', style=nextcord.ButtonStyle.primary)
+    @nextcord.ui.button(emoji=PRIVATE_VC.get('create'), style=nextcord.ButtonStyle.primary)
     async def create(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
         if interaction.user.voice is None:
             await interaction.send('Перейдите в любой гс для продолжения!', ephemeral=True)
@@ -61,7 +64,7 @@ class SetupPrivateVoiceView(nextcord.ui.View):
         cur = conn.cursor()
         cur.execute(
             'SELECT vc_category FROM private_vc_config WHERE server_id=?',
-            (interaction.guild_id, )
+            (interaction.guild_id,)
         )
 
         vc_category_id = cur.fetchone()
@@ -69,12 +72,14 @@ class SetupPrivateVoiceView(nextcord.ui.View):
             vc_category_id = vc_category_id[0]
 
         vc_category: nextcord.CategoryChannel | None = interaction.guild.get_channel(vc_category_id)
-        vc_category_permissions = nextcord.PermissionOverwrite(speak=False, stream=False, start_embedded_activities=False)
+        vc_category_permissions = nextcord.PermissionOverwrite(speak=False, stream=False,
+                                                               start_embedded_activities=False)
         vc_permissions = {interaction.guild.default_role: nextcord.PermissionOverwrite(connect=False)}
         vc_permissions |= {member: nextcord.PermissionOverwrite(connect=True) for member in self.allowed_members}
 
         if vc_category is None:
-            vc_category = await interaction.guild.create_category('PRIVATE VOICE', reason='saved voice category was deleted')
+            vc_category = await interaction.guild.create_category('PRIVATE VOICE',
+                                                                  reason='saved voice category was deleted')
 
             cur.execute(
                 'INSERT INTO private_vc_config VALUES (?, ?)',
@@ -101,22 +106,26 @@ class SetupPrivateVoiceView(nextcord.ui.View):
         await self.status_message.delete()
         await interaction.send('Готово!', ephemeral=True)
 
-    @nextcord.ui.button(label='Изменить название')
+    @nextcord.ui.button(emoji=PRIVATE_VC.get('change_name'))
     async def change_name(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
         modal = ChangeNameModal(self)
         await interaction.response.send_modal(modal)
 
-
-    @nextcord.ui.button(label='Добавить участников')
+    @nextcord.ui.button(emoji=PRIVATE_VC.get('add_users'))
     async def add_members(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
-        msg = await interaction.send('Выберите людей, которым будет разрешен доступ к каналу', ephemeral=True)
         view = nextcord.ui.View()
-        user_select_item = UserSelectItem(self, msg)
-        view.add_item(user_select_item)
-
+        msg = await interaction.send('Выберите людей, которым будет разрешен доступ к каналу', ephemeral=True)
+        view.add_item(UserSelectItem(self, msg, ActionWithUsers.ADD))
         await msg.edit(view=view)
 
-    @nextcord.ui.button(label='Изменить лимит')
+    @nextcord.ui.button(emoji=PRIVATE_VC.get('remove_users'))
+    async def remove_members(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
+        view = nextcord.ui.View()
+        msg = await interaction.send('Выберите людей, которым будет убран доступ к каналу', ephemeral=True)
+        view.add_item(UserSelectItem(self, msg, ActionWithUsers.REMOVE))
+        await msg.edit(view=view)
+
+    @nextcord.ui.button(emoji=PRIVATE_VC.get('change_limit'))
     async def change_people_limit(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
         modal = PeopleLimitModal(self)
         await interaction.response.send_modal(modal)
@@ -125,26 +134,47 @@ class SetupPrivateVoiceView(nextcord.ui.View):
 class UserSelectItem(nextcord.ui.UserSelect):
     def __init__(
             self, change_view: SetupPrivateVoiceView,
-            status_message: nextcord.PartialInteractionMessage
+            status_message: nextcord.PartialInteractionMessage,
+            action: int
     ):
         super().__init__(max_values=25)
+        self.action = action
         self.change_view = change_view
         self.status_message = status_message
 
     async def callback(self, interaction: nextcord.Interaction):
         embed = nextcord.Embed(title='Добавление участников: результаты', color=0xFFFFFF)
         add_members = []
+        remove_members = []
         allowed_members_ids = [i.id for i in self.change_view.allowed_members]
 
-        for member in self.values:
-            if member.id in allowed_members_ids:
-                embed.add_field(name=member.display_name, value='✅ (уже добавлен)')
-                continue
+        if self.action == ActionWithUsers.ADD:
+            for member in self.values:
+                if member.id in allowed_members_ids:
+                    embed.add_field(name=member.display_name, value='✅ (уже добавлен)')
+                    continue
 
-            embed.add_field(name=member.display_name, value='✅')
-            add_members.append(member)
+                embed.add_field(name=member.display_name, value='✅')
+                add_members.append(member)
 
-        self.change_view.allowed_members += add_members
+            self.change_view.allowed_members += add_members
+        elif self.action == ActionWithUsers.REMOVE:
+            for member in self.values:
+                if member.id not in allowed_members_ids:
+                    embed.add_field(name=member.display_name, value='✅ (не в списке)')
+                    continue
+
+                if member.id == self.change_view.author.id:
+                    embed.add_field(name=member.display_name, value='❌ (нельзя убрать себя)')
+                    continue
+
+                embed.add_field(name=member.display_name, value='✅')
+                remove_members.append(member)
+
+            for i in remove_members:
+                self.change_view.allowed_members.pop(allowed_members_ids.index(i.id))
+                allowed_members_ids.pop(allowed_members_ids.index(i.id))
+
         await self.status_message.edit(content=None, embed=embed, view=None)
         await self.change_view.update_embed()
 

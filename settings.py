@@ -26,3 +26,10 @@ DB_DUMPS = (
     'CREATE TABLE private_vc(server_id INT, vc_channel_id INT)'
 )
 EMOJI_REGEX = r'<(?P<animated>a?):(?P<name>[a-zA-Z0-9_]{2,32}):(?P<id>[0-9]{18,22})>'
+PRIVATE_VC = {
+    'create': '<:Revote:1244629486524432464>',
+    'change_name': '<:TextFieldFocus:1244629487933591602>',
+    'remove_users': '<:UserBlockRounded:1244629489271570462>',
+    'add_users': '<:UserPlusRounded:1244629491280646236>',
+    'change_limit': '<:UsersGroupRounded:1244629493075808397>',
+}
