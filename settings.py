@@ -23,7 +23,7 @@ DB_DUMPS = (
     'CREATE TABLE political(name TEXT, desc TEXT, banner_url TEXT, popularity INT)',
     'CREATE TABLE event_templates(server_id INT, template_name TEXT, embed_bytes BLOB)',
     'CREATE TABLE private_vc_config(server_id INT, vc_category INT)',
-    'CREATE TABLE private_vc(server_id INT, vc_channel_id INT)'
+    'CREATE TABLE private_vc(server_id INT, vc_channel_id INT, people_limit INT, allowed_members TEXT, delete_option INT)'
 )
 EMOJI_REGEX = r'<(?P<animated>a?):(?P<name>[a-zA-Z0-9_]{2,32}):(?P<id>[0-9]{18,22})>'
 PRIVATE_VC = {

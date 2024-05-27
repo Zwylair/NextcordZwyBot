@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 import nextcord.ext.commands
+from temp_voice.setup_temp_voice import SetupPrivateVoiceView
 from settings import *
 import db
 
@@ -19,28 +20,94 @@ class ActionWithUsers:
     REMOVE = 2
 
 
-class SetupPrivateVoiceView(nextcord.ui.View):
+class ModifyPrivateVoiceView(nextcord.ui.View):
     def __init__(
-            self, status_message: nextcord.PartialInteractionMessage,
-            author: nextcord.Member,
-            bot: nextcord.ext.commands.Bot
+            self, vc_setup_view: SetupPrivateVoiceView,
+            voice_channel: nextcord.VoiceChannel,
+            interaction: nextcord.Interaction
     ):
-        super().__init__(timeout=5 * 60)
+        super().__init__(timeout=60 * 60)
 
-        self.bot = bot
-        self.author = author
-        self.status_message = status_message
-        self.vc_name = ''
-        self.people_limit: int | None = None
-        self.delete_option = DeleteOptions.NOBODY_IN_VOICE
-        self.allowed_members = [author]
+        self.bot = vc_setup_view.bot
+        self.voice_channel = voice_channel
+        self.interaction = interaction
+        self.author = vc_setup_view.author
+        self.status_message = vc_setup_view.status_message
+        self.vc_name = vc_setup_view.vc_name
+        self.people_limit = vc_setup_view.people_limit
+        self.delete_option = vc_setup_view.delete_option
+        self.allowed_members = [self.author]
 
-        self.set_vc_name_to_default()
-
-    def set_vc_name_to_default(self):
+    async def set_vc_name_to_default(self, user: nextcord.Member):
         # user.nick is server name of user. using default name if not set
         author_name = self.author.global_name if self.author.nick is None else self.author.nick
-        self.vc_name = f'{author_name}\'s channel'
+        await self.update_vc(user, vc_name=f'{author_name}\'s channel')
+
+    def check_for_vc_author(self, user: nextcord.Member | nextcord.User):
+        return user.id == self.author.id
+
+    async def update_vc(
+            self, user: nextcord.Member,
+            vc_name: str = None,
+            people_limit: int = None,
+            delete_option: str = None,
+            allowed_members: dict[nextcord.Role | nextcord.Member, nextcord.PermissionOverwrite] = None
+    ):
+        if not self.check_for_vc_author(user):
+            await self.interaction.send('Вы не создатель приватного канала!', ephemeral=True)
+            return
+
+        author = self.author.guild.get_member(self.author.id)
+        if author.voice is None:
+            await self.interaction.send('Вы не находитесь в приватном канале!', ephemeral=True)
+            return
+
+        conn = db.get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            'SELECT vc_channel_id FROM private_vc WHERE server_id=? AND vc_channel_id=?',
+            (author.guild.id, author.voice.channel.id)
+        )
+        fetch = cur.fetchone()
+
+        if fetch is None:
+            await self.interaction.send('Вы находитесь не в приватном канале!', ephemeral=True)
+            return
+
+        if vc_name is not None:
+            self.vc_name = vc_name
+            await self.voice_channel.edit(name=vc_name)
+
+        if people_limit is not None:
+            cur.execute(
+                'UPDATE private_vc SET people_limit=? WHERE server_id=? AND vc_channel_id=?',
+                (people_limit, self.author.guild.id, self.voice_channel.id)
+            )
+            self.people_limit = None if people_limit == 0 else people_limit
+            await self.voice_channel.edit(user_limit=people_limit)
+
+        if delete_option is not None:
+            cur.execute(
+                'UPDATE private_vc SET delete_option=? WHERE server_id=? AND vc_channel_id=?',
+                (delete_option, self.author.guild.id, self.voice_channel.id)
+            )
+            self.delete_option = delete_option
+
+        if allowed_members is not None:
+            allowed_members_ids = [i.id for i in self.allowed_members]
+            allowed_members_ids = json.dumps(allowed_members_ids)
+
+            cur.execute(
+                'UPDATE private_vc SET allowed_members=? WHERE server_id=? AND vc_channel_id=?',
+                (allowed_members_ids, self.author.guild.id, self.voice_channel.id)
+            )
+            await self.voice_channel.edit(overwrites=allowed_members)
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        await self.update_embed()
 
     async def update_embed(self):
         members_str = ' '.join([i.mention for i in self.allowed_members])
@@ -54,67 +121,6 @@ class SetupPrivateVoiceView(nextcord.ui.View):
         embed.add_field(name='Удаление при', value=delete_str)
 
         await self.status_message.edit(content=None, embed=embed)
-
-    @nextcord.ui.button(emoji=PRIVATE_VC.get('create'), style=nextcord.ButtonStyle.primary)
-    async def create(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
-        if interaction.user.voice is None:
-            await interaction.send('Перейдите в любой гс для продолжения!', ephemeral=True)
-            return
-
-        conn = db.get_conn()
-        cur = conn.cursor()
-        cur.execute(
-            'SELECT vc_category FROM private_vc_config WHERE server_id=?',
-            (interaction.guild_id,)
-        )
-
-        vc_category_id = cur.fetchone()
-        if vc_category_id is not None:
-            vc_category_id = vc_category_id[0]
-
-        vc_category: nextcord.CategoryChannel | None = interaction.guild.get_channel(vc_category_id)
-        vc_category_permissions = nextcord.PermissionOverwrite(speak=False, stream=False,
-                                                               start_embedded_activities=False)
-        vc_permissions = {interaction.guild.default_role: nextcord.PermissionOverwrite(connect=False)}
-        vc_permissions |= {member: nextcord.PermissionOverwrite(connect=True) for member in self.allowed_members}
-
-        if vc_category is None:
-            vc_category = await interaction.guild.create_category(
-                'PRIVATE VOICE',
-                reason='saved voice category was deleted'
-            )
-
-            cur.execute(
-                'INSERT INTO private_vc_config VALUES (?, ?)',
-                (interaction.guild_id, vc_category.id)
-            )
-
-        await vc_category.set_permissions(interaction.guild.default_role, overwrite=vc_category_permissions)
-        private_channel = await interaction.guild.create_voice_channel(
-            name=self.vc_name,
-            category=vc_category,
-            user_limit=self.people_limit,
-            overwrites=vc_permissions
-        )
-
-        allowed_members_ids = [i.id for i in self.allowed_members]
-        allowed_members_ids = json.dumps(allowed_members_ids)
-
-        cur.execute(
-            'INSERT INTO private_vc VALUES (?, ?, ?, ?, ?)',
-            (interaction.guild_id, private_channel.id, self.people_limit, allowed_members_ids, self.delete_option)
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        from temp_voice.setup_temp_voice.modify_temp_voice import ModifyPrivateVoiceView
-        view = ModifyPrivateVoiceView(self, private_channel, interaction)
-
-        await self.author.move_to(private_channel)
-        await self.status_message.edit(view=view)
-        await view.update_embed()
-        await interaction.send('Создано!', ephemeral=True)
 
     @nextcord.ui.button(emoji=PRIVATE_VC.get('change_name'))
     async def change_name(self, _: nextcord.ui.Button, interaction: nextcord.Interaction):
@@ -143,7 +149,7 @@ class SetupPrivateVoiceView(nextcord.ui.View):
 
 class UserSelectItem(nextcord.ui.UserSelect):
     def __init__(
-            self, change_view: SetupPrivateVoiceView,
+            self, change_view: ModifyPrivateVoiceView,
             status_message: nextcord.PartialInteractionMessage,
             action: int
     ):
@@ -155,6 +161,7 @@ class UserSelectItem(nextcord.ui.UserSelect):
     async def callback(self, interaction: nextcord.Interaction):
         add_members = []
         remove_members = []
+        new_permissions = {}
         allowed_members_ids = [i.id for i in self.change_view.allowed_members]
         embed = nextcord.Embed()
 
@@ -169,6 +176,7 @@ class UserSelectItem(nextcord.ui.UserSelect):
                 embed.add_field(name=member.display_name, value='✅')
                 add_members.append(member)
 
+            new_permissions = {member: nextcord.PermissionOverwrite(connect=True) for member in add_members}
             self.change_view.allowed_members += add_members
         elif self.action == ActionWithUsers.REMOVE:
             embed = nextcord.Embed(title='Удаление участников: результаты', color=0xFFFFFF)
@@ -185,16 +193,17 @@ class UserSelectItem(nextcord.ui.UserSelect):
                 embed.add_field(name=member.display_name, value='✅')
                 remove_members.append(member)
 
+            new_permissions = {member: nextcord.PermissionOverwrite(connect=False) for member in remove_members}
             for i in remove_members:
                 self.change_view.allowed_members.pop(allowed_members_ids.index(i.id))
                 allowed_members_ids.pop(allowed_members_ids.index(i.id))
 
         await self.status_message.edit(content=None, embed=embed, view=None)
-        await self.change_view.update_embed()
+        await self.change_view.update_vc(interaction.user, allowed_members=new_permissions)
 
 
 class PeopleLimitModal(nextcord.ui.Modal):
-    def __init__(self, view: SetupPrivateVoiceView):
+    def __init__(self, view: ModifyPrivateVoiceView):
         self.view = view
 
         super().__init__(
@@ -218,12 +227,11 @@ class PeopleLimitModal(nextcord.ui.Modal):
             return
         value = int(value)
 
-        self.view.people_limit = None if value == 0 else value
-        await self.view.update_embed()
+        await self.view.update_vc(interaction.user, people_limit=value)
 
 
 class ChangeNameModal(nextcord.ui.Modal):
-    def __init__(self, view: SetupPrivateVoiceView):
+    def __init__(self, view: ModifyPrivateVoiceView):
         self.view = view
 
         super().__init__(
@@ -243,8 +251,6 @@ class ChangeNameModal(nextcord.ui.Modal):
         value = self.vc_name.value
 
         if not value:
-            self.view.set_vc_name_to_default()
+            await self.view.set_vc_name_to_default(interaction.user)
         else:
-            self.view.vc_name = value
-
-        await self.view.update_embed()
+            await self.view.update_vc(interaction.user, vc_name=value)
