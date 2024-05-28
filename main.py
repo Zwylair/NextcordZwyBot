@@ -115,8 +115,6 @@ async def on_connect():
     moderation.setup(bot)
     events.setup(bot)
 
-    await temp_voice.setup_listener(bot)
-
     await bot.sync_all_application_commands()
     await _update_server_count()
 

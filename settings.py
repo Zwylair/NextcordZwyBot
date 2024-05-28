@@ -17,16 +17,15 @@ DATETIME_WEEKDAY_DICT = {
     6: 'sunday'
 }
 DB_DUMPS = (
-    'CREATE TABLE bot(user_id INT)',
     'CREATE TABLE views(view_type TEXT, guild_id INT, channel_id INT, message_id INT, role_id INT)',
     'CREATE TABLE verifier_emoji(role_id INT, message_id INT)',
-    'CREATE TABLE political(name TEXT, desc TEXT, banner_url TEXT, popularity INT)',
     'CREATE TABLE event_templates(server_id INT, template_name TEXT, embed_bytes BLOB)',
-    'CREATE TABLE private_vc_config(server_id INT, vc_category INT)',
-    'CREATE TABLE private_vc(server_id INT, vc_channel_id INT, people_limit INT, allowed_members TEXT, delete_option INT)'
+    'CREATE TABLE private_vc(server_id INT, vc_channel_id INT, author_id INT)',
+    'CREATE TABLE private_vc_server_config(server_id INT, vc_category INT, creator_vc_channel INT)',
+    'CREATE TABLE private_vc_user_config(user_id INT, people_limit INT, allowed_members TEXT, delete_option INT, vc_name TEXT)'
 )
 EMOJI_REGEX = r'<(?P<animated>a?):(?P<name>[a-zA-Z0-9_]{2,32}):(?P<id>[0-9]{18,22})>'
-PRIVATE_VC = {
+PRIVATE_VC_EMOJIS = {
     'create': '<:Revote:1244629486524432464>',
     'change_name': '<:TextFieldFocus:1244629487933591602>',
     'remove_users': '<:UserBlockRounded:1244629489271570462>',

@@ -1,4 +1,3 @@
-import json
 import nextcord.ext.commands
 from temp_voice.setup_temp_voice import SetupPrivateVoiceView
 from temp_voice.setup_temp_voice.modify_temp_voice import ModifyPrivateVoiceView
@@ -30,27 +29,18 @@ class CreatePrivateVoiceView(nextcord.ui.View):
             'SELECT * FROM private_vc WHERE server_id=? AND vc_channel_id=?',
             (interaction.user.guild.id, interaction.user.voice.channel.id)
         )
-        fetch = cur.fetchone()
-
+        res = cur.fetchone()
         cur.close()
         conn.close()
 
-        if fetch is None:
+        if res is None:
             await interaction.send('Вы находитесь не в приватном канале!', ephemeral=True)
             return
 
-        server_id, vc_channel_id, people_limit, allowed_members, delete_option = fetch
-        allowed_members = [interaction.guild.get_member(i) for i in json.loads(allowed_members)]
-        vc_channel = interaction.guild.get_channel(vc_channel_id)
+        vc_channel = interaction.guild.get_channel(interaction.user.voice.channel.id)
         msg = await interaction.send('...', ephemeral=True)
-
         view = SetupPrivateVoiceView(msg, interaction.user, self.bot)
-        view.vc_name = vc_channel.name
-        view.author = allowed_members[0]
-        view.people_limit = people_limit
-        view.allowed_members = allowed_members
-        view.delete_option = delete_option
-
         view = ModifyPrivateVoiceView(view, vc_channel, interaction)
+
         await msg.edit(view=view)
         await view.update_embed()

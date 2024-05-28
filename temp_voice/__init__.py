@@ -1,5 +1,6 @@
 from temp_voice.create_temp_voice_view import *
-from temp_voice.listener import *
+import temp_voice.delete_vc_listener
+import temp_voice.create_vc_listener
 import nextcord.ext.commands
 
 
@@ -11,23 +12,47 @@ class TempVoiceCog(nextcord.ext.commands.Cog):
     async def private_voice(self, _: nextcord.Interaction):
         pass
 
-    @private_voice.subcommand(name='setup', description='Настроить создание приватных каналов')
-    async def setup(
-        self, interaction: nextcord.Interaction,
-        private_vc_category: nextcord.CategoryChannel = nextcord.SlashOption(
-            name='category',
-            description='Категория, в которой будут создаваться приватные гс'
-        )
-    ):
+    @private_voice.subcommand(name='setup', description='Создать категорию и канал-создатель приватных комнат')
+    async def setup(self, interaction: nextcord.Interaction):
         conn = db.get_conn()
-        conn.execute(
-            'INSERT INTO private_vc_config VALUES (?, ?)',
-            (interaction.guild_id, private_vc_category.id)
+        cur = conn.cursor()
+        cur.execute(
+            'SELECT creator_vc_channel FROM private_vc_server_config WHERE server_id=?',
+            (interaction.guild_id,)
         )
-        conn.commit()
-        conn.close()
 
-        await interaction.send('Категория сохранена!', ephemeral=True)
+        creator_vc_channel = cur.fetchone()
+        if creator_vc_channel is not None:
+            creator_vc_channel = creator_vc_channel[0]
+
+        creator_vc: nextcord.VoiceChannel | None = interaction.guild.get_channel(creator_vc_channel)
+        vc_category_permissions = nextcord.PermissionOverwrite(
+            speak=False,
+            stream=False,
+            start_embedded_activities=False
+        )
+        if creator_vc is None:
+            vc_category = await interaction.guild.create_category(
+                'PRIVATE VOICE',
+                reason='saved voice category was deleted'
+            )
+            creator_vc = await vc_category.create_voice_channel(
+                'Create private VC',
+                reason='saved voice category was deleted',
+                overwrites={interaction.guild.default_role: vc_category_permissions}
+            )
+
+            conn = db.get_conn()
+            conn.execute(
+                'INSERT INTO private_vc_server_config VALUES (?, ?, ?)',
+                (interaction.guild_id, vc_category.id, creator_vc.id)
+            )
+            conn.commit()
+            conn.close()
+
+            await interaction.send('Категория и канал-создатель приватных комнат созданы!', ephemeral=True)
+            return
+        await interaction.send('Категория и канал-создатель приватных комнат уже созданы!', ephemeral=True)
 
     @private_voice.subcommand(name='send_creator', description='Отправить в чат создавалку приватных гс')
     async def send_private_voice_creator(
@@ -37,6 +62,20 @@ class TempVoiceCog(nextcord.ext.commands.Cog):
             description='Чат назначения'
         )
     ):
+        conn = db.get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            'SELECT server_id FROM private_vc_server_config WHERE server_id=?',
+            (interaction.guild_id, )
+        )
+        res = cur.fetchone()
+
+        if res is None:
+            await interaction.send('Создание приватных гс не было настроено! Введите команду `/private_voice setup` для настройки', ephemeral=True)
+            cur.close()
+            conn.close()
+            return
+
         embed = nextcord.Embed(
             title='Панель приватного гс',
             description='Нажимая эту кнопку вам откроется опции вашего приватного гс!',
@@ -44,16 +83,18 @@ class TempVoiceCog(nextcord.ext.commands.Cog):
         )
         msg = await channel.send(embed=embed, view=CreatePrivateVoiceView(self.bot))
 
-        conn = db.get_conn()
-        conn.execute(
+        cur.execute(
             'INSERT INTO views VALUES (?, ?, ?, ?, ?)',
             ('create_temp_voice_view', interaction.guild_id, channel.id, msg.id, None)
         )
         conn.commit()
+        cur.close()
         conn.close()
 
         await interaction.send('Отправлено!', ephemeral=True)
 
 
-def setup(bot):
+def setup(bot: nextcord.ext.commands.Bot):
     bot.add_cog(TempVoiceCog(bot))
+    bot.add_listener(create_vc_listener.on_voice_state_update)
+    bot.add_listener(delete_vc_listener.on_voice_state_update)
