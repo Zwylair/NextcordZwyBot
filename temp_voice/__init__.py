@@ -14,6 +14,19 @@ class TempVoiceCog(nextcord.ext.commands.Cog):
 
     @private_voice.subcommand(name='setup', description='Создать категорию и канал-создатель приватных комнат')
     async def setup(self, interaction: nextcord.Interaction):
+        has_administrator = False
+        for role in interaction.user.roles:
+            if role.permissions.administrator:
+                has_administrator = True
+                break
+
+        if interaction.user.guild.owner_id == interaction.user.id:
+            has_administrator = True
+
+        if not has_administrator:
+            await interaction.send('У вас недостаточно прав (Администратор) для использования этой команды!', ephemeral=True)
+            return
+
         conn = db.get_conn()
         cur = conn.cursor()
         cur.execute(
@@ -62,6 +75,19 @@ class TempVoiceCog(nextcord.ext.commands.Cog):
             description='Чат назначения'
         )
     ):
+        has_administrator = False
+        for role in interaction.user.roles:
+            if role.permissions.administrator:
+                has_administrator = True
+                break
+
+        if interaction.user.guild.owner_id == interaction.user.id:
+            has_administrator = True
+
+        if not has_administrator:
+            await interaction.send('У вас недостаточно прав (Администратор) для использования этой команды!', ephemeral=True)
+            return
+
         conn = db.get_conn()
         cur = conn.cursor()
         cur.execute(
